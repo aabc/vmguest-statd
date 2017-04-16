@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <vmGuestLib.h>
 
@@ -115,8 +116,12 @@ int main(int argc, char **argv)
     VMGuestLibHandle glHandle;
     VMGuestLibError glError;
 
-    openlog("vmguest-stat", 0, LOG_DAEMON);
     _isatty = isatty(1);
+    if (!_isatty) {
+	daemon(0, 0);
+    }
+
+    openlog("vmguest-stat", 0, LOG_DAEMON);
 
     glError = VMGuestLib_OpenHandle(&glHandle);
     if (glError) {
@@ -125,14 +130,14 @@ int main(int argc, char **argv)
     }
 
     signal(SIGTERM, sigterm_handler);
+    signal(SIGINT, sigterm_handler);
     
     while (_running) {
 	if (output_stat(glHandle))
 	    break;
-	sleep(10);
+	sleep(_isatty? 10 : 60);
     }
 
-    printf("error\n");
     VMGuestLib_CloseHandle(glHandle);
     closelog();
     return 0;

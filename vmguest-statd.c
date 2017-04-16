@@ -13,6 +13,9 @@
 
 #define MAX_MESSAGE 2048
 
+static int _isatty = 0;
+static volatile sig_atomic_t _running = 1;
+
 static void log_message(int level, const char *fmt, ...)
 {
     char buf[MAX_MESSAGE];
@@ -22,11 +25,11 @@ static void log_message(int level, const char *fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
 
-    printf("%s\n", buf);
-    syslog(level, "%s", buf);
+    if (_isatty)
+	printf("%s\n", buf);
+    else
+	syslog(level, "%s", buf);
 }
-
-volatile sig_atomic_t _running = 1;
 
 void sigterm_handler(int arg)
 {
@@ -58,21 +61,18 @@ static int output_stat(VMGuestLibHandle glHandle)
     uint32 mhz;
     glError = VMGuestLib_GetHostProcessorSpeed(glHandle, &mhz);
 
+    uint32 cpuReservationMHz;
+    glError = VMGuestLib_GetCpuReservationMHz(glHandle, &cpuReservationMHz);
+
+    uint32 cpuLimitMHz;
+    glError = VMGuestLib_GetCpuLimitMHz(glHandle, &cpuLimitMHz);
+
+    uint32 cpuShares;
+    glError = VMGuestLib_GetCpuShares(glHandle, &cpuShares);
+
     if (new_sid != sid) {
 	if (sid)
 	    log_message(LOG_INFO, "Session id is changed, reset stat.");
-
-	uint32 cpuReservationMHz;
-	glError = VMGuestLib_GetCpuReservationMHz(glHandle, &cpuReservationMHz);
-
-	uint32 cpuLimitMHz;
-	glError = VMGuestLib_GetCpuLimitMHz(glHandle, &cpuLimitMHz);
-
-	uint32 cpuShares;
-	glError = VMGuestLib_GetCpuShares(glHandle, &cpuShares);
-
-	log_message(LOG_INFO, "Host freq %d MHz, Reserved %d MHz, Limit %d MHz, CPU shares %d",
-	    mhz, cpuReservationMHz, cpuLimitMHz, cpuShares);
 
 	sid             = new_sid;
 	old_elapsedMs   = 0;
@@ -89,13 +89,18 @@ static int output_stat(VMGuestLibHandle glHandle)
     uint64 cpuUsedMs;
     glError = VMGuestLib_GetCpuUsedMs(glHandle, &cpuUsedMs);
 
+#define HOUR_MS (1000 * 60 * 60)
+    if (!old_elapsedMs || (old_elapsedMs / HOUR_MS) != (elapsedMs / HOUR_MS))
+	log_message(LOG_INFO, "Host freq %d MHz, Reserved %d MHz, Limit %d MHz, CPU shares %d",
+	    mhz, cpuReservationMHz, cpuLimitMHz, cpuShares);
+
     if (elapsedMs == old_elapsedMs)
 	return 0;
 
     double usedCpu      = (cpuUsedMs   - old_cpuUsedMs)   * 100.0 / (elapsedMs - old_elapsedMs);
     double stolenCpu    = (cpuStolenMs - old_cpuStolenMs) * 100.0 / (elapsedMs - old_elapsedMs);
     double effectiveMhz = (cpuUsedMs   - old_cpuUsedMs)   * mhz   / (elapsedMs - old_elapsedMs);
-    log_message(LOG_INFO, "CPU used %3.2f%%, stolen %3.2f%%, effective freq %3.0f MHz",
+    log_message(LOG_INFO, "CPU used %5.2f%%, stolen %5.2f%%, effective freq %4.0f MHz",
        	usedCpu, stolenCpu, effectiveMhz);
 
     old_elapsedMs   = elapsedMs;
@@ -110,7 +115,8 @@ int main(int argc, char **argv)
     VMGuestLibHandle glHandle;
     VMGuestLibError glError;
 
-    openlog("vmguest-stat", LOG_PID, LOG_DAEMON);
+    openlog("vmguest-stat", 0, LOG_DAEMON);
+    _isatty = isatty(1);
 
     glError = VMGuestLib_OpenHandle(&glHandle);
     if (glError) {

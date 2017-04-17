@@ -6,6 +6,10 @@ all: vmguest-statd
 vmguest-statd: vmguest-statd.c
 	$(CC) -o $@ $(XFLAGS) $<
 
+restart: vmguest-statd
+	-killall vmguest-statd
+	./vmguest-statd >/dev/null
+
 clean:
 	-rm -f vmguest-statd *.o
 

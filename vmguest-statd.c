@@ -101,8 +101,13 @@ static int output_stat(VMGuestLibHandle glHandle)
     double usedCpu      = (cpuUsedMs   - old_cpuUsedMs)   * 100.0 / (elapsedMs - old_elapsedMs);
     double stolenCpu    = (cpuStolenMs - old_cpuStolenMs) * 100.0 / (elapsedMs - old_elapsedMs);
     double effectiveMhz = (cpuUsedMs   - old_cpuUsedMs)   * mhz   / (elapsedMs - old_elapsedMs);
-    log_message(LOG_INFO, "CPU used %5.2f%%, stolen %5.2f%%, effective freq %4.0f MHz",
-       	usedCpu, stolenCpu, effectiveMhz);
+    char oflimit[32] = { 0 };
+    if (mhz) {
+	double effectiveCpu = effectiveMhz * 100.0 / mhz;
+	snprintf(oflimit, sizeof(oflimit), " (%.0f%% of limit)", effectiveCpu);
+    }
+    log_message(LOG_INFO, "CPU used %5.2f%%, stolen %5.2f%%, effective freq %4.0f MHz%s",
+	usedCpu, stolenCpu, effectiveMhz, oflimit);
 
     old_elapsedMs   = elapsedMs;
     old_cpuStolenMs = cpuStolenMs;

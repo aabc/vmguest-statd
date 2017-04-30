@@ -27,7 +27,6 @@
 #include <stdarg.h>
 #include <signal.h>
 #include <unistd.h>
-
 #include <vmGuestLib.h>
 
 #define MAX_MESSAGE 2048
@@ -77,7 +76,7 @@ static int output_stat(VMGuestLibHandle glHandle)
     if (glError)
 	return 0;
 
-    uint32 mhz;
+    int32 mhz;
     glError = VMGuestLib_GetHostProcessorSpeed(glHandle, &mhz);
 
     uint32 cpuReservationMHz;
@@ -120,7 +119,7 @@ static int output_stat(VMGuestLibHandle glHandle)
     double stolenCpu    = (cpuStolenMs - old_cpuStolenMs) * 100.0 / (elapsedMs - old_elapsedMs);
     double effectiveMhz = (cpuUsedMs   - old_cpuUsedMs)   * mhz   / (elapsedMs - old_elapsedMs);
     char oflimit[32] = { 0 };
-    if (mhz) {
+    if (mhz > 0) {
 	double effectiveCpu = effectiveMhz * 100.0 / mhz;
 	snprintf(oflimit, sizeof(oflimit), " (%.0f%% of limit)", effectiveCpu);
     }

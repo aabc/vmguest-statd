@@ -78,6 +78,8 @@ static int output_stat(VMGuestLibHandle glHandle)
 
     int32 mhz;
     glError = VMGuestLib_GetHostProcessorSpeed(glHandle, &mhz);
+    if (glError)
+      mhz = -2;
 
     uint32 cpuReservationMHz;
     glError = VMGuestLib_GetCpuReservationMHz(glHandle, &cpuReservationMHz);
@@ -138,10 +140,15 @@ int main(int argc, char **argv)
     VMGuestLibHandle glHandle;
     VMGuestLibError glError;
 
-    _isatty = isatty(1);
-    if (!_isatty) {
+    if (argc > 1 && !strcmp("--syslog", argv[1]))
+      _isatty = 0;
+    else if (argc > 1 && !strcmp("--tty", argv[1]))
+      _isatty = 1;
+    else
+      _isatty = isatty(1);
+
+    if (!_isatty)
 	daemon(0, 0);
-    }
 
     openlog("vmguest-stat", 0, LOG_DAEMON);
 

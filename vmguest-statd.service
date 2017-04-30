@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically log VM guest CPU stats to syslog
+After=syslog.target
+
+[Service]
+Type=forking
+KillMode=process
+ExecStart=/usr/sbin/vmguest-statd --syslog
+
+[Install]
+WantedBy=multi-user.target
